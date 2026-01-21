@@ -1,5 +1,5 @@
 // --- Configuration ---
-const SIGNALING_SERVER = "http://localhost:5000"; // Change this to your Render URL later
+const SIGNALING_SERVER = "https://p2p-zbxm.onrender.com"; // Change this to your Render URL later
 const PEERJS_CONFIG = {
     host: '0.peerjs.com',
     port: 443,
@@ -43,7 +43,7 @@ async function init() {
         sleepNotif.classList.add('hidden');
         statusText.innerText = "เชื่อมต่อแล้ว - " + myName;
         console.log("Connected to signaling server");
-        
+
         // Initialize PeerJS after socket is ready
         initPeerJS();
     });
@@ -89,7 +89,7 @@ function addPeer(peerId, name) {
         <div class="peer-avatar">${name.charAt(0)}</div>
         <div class="peer-name">${name}</div>
     `;
-    
+
     // Random position for radar (avoid center)
     const angle = Math.random() * Math.PI * 2;
     const radius = 150 + Math.random() * 150;
@@ -97,7 +97,7 @@ function addPeer(peerId, name) {
     const y = Math.sin(angle) * radius;
     node.style.left = `calc(50% + ${x}px)`;
     node.style.top = `calc(50% + ${y}px)`;
-    
+
     node.onclick = () => selectPeer(peerId);
     othersContainer.appendChild(node);
 
@@ -173,7 +173,7 @@ function sendFile(peerId, file) {
             reader.onload = (event) => {
                 conn.send(event.target.result);
                 offset += event.target.result.byteLength;
-                
+
                 const progress = (offset / file.size) * 100;
                 document.getElementById('progress-bar').style.width = `${progress}%`;
                 document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
@@ -224,7 +224,7 @@ function handleIncomingConnection(conn) {
         conn.on('data', (data) => {
             receivedChunks.push(data);
             receivedSize += data.byteLength;
-            
+
             const progress = (receivedSize / fileSize) * 100;
             document.getElementById('progress-bar').style.width = `${progress}%`;
             document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
@@ -236,7 +236,7 @@ function handleIncomingConnection(conn) {
                 a.href = url;
                 a.download = fileName;
                 a.click();
-                
+
                 document.getElementById('progress-text').innerText = "ดาวน์โหลดเสร็จแล้ว!";
                 setTimeout(hideModal, 2000);
             }
@@ -259,8 +259,8 @@ window.hideModal = hideModal;
 function generateRandomName() {
     const adjectives = ["Happy", "Quiet", "Fast", "Brave", "Clever", "Cool", "Mighty"];
     const animals = ["Panda", "Fox", "Eagle", "Lion", "Tiger", "Dolphin", "Wolf"];
-    return adjectives[Math.floor(Math.random() * adjectives.length)] + " " + 
-           animals[Math.floor(Math.random() * animals.length)];
+    return adjectives[Math.floor(Math.random() * adjectives.length)] + " " +
+        animals[Math.floor(Math.random() * animals.length)];
 }
 
 function formatBytes(bytes, decimals = 2) {
