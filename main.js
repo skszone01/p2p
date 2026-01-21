@@ -90,9 +90,11 @@ function addPeer(peerId, name) {
         <div class="peer-name">${name}</div>
     `;
 
-    // Random position for radar (avoid center)
-    const angle = Math.random() * Math.PI * 2;
-    const radius = 150 + Math.random() * 150;
+    // Random position for radar (avoid center, but keep within bounds)
+    // 0 to PI ensures it's always in the lower half (Y is positive downwards)
+    const angle = Math.random() * Math.PI;
+    // Reduced radius: min 120px, max 220px to avoid hitting header/edges
+    const radius = 120 + Math.random() * 100;
     const x = Math.cos(angle) * radius;
     const y = Math.sin(angle) * radius;
     node.style.left = `calc(50% + ${x}px)`;
