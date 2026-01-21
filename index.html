@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P File Share - ง่าย รวดเร็ว ปลอดภัย</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- PeerJS & Socket.IO -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">📡 P2P Share</div>
+        <div id="connection-status" class="peer-name">กำลังเชื่อมต่อ...</div>
+    </header>
+
+    <main>
+        <!-- Desktop Radar -->
+        <div id="radar-container">
+            <div class="radar-circle" style="width: 200px; height: 200px;"></div>
+            <div class="radar-circle" style="width: 400px; height: 400px;"></div>
+            <div class="radar-circle" style="width: 600px; height: 600px;"></div>
+            
+            <div id="you-node" class="peer-node">
+                <div class="peer-avatar">👤</div>
+                <div class="peer-name">คุณ</div>
+            </div>
+
+            <!-- Other peers will be injected here -->
+            <div id="others-container"></div>
+        </div>
+
+        <!-- Mobile List -->
+        <div id="peer-list">
+            <h3 style="margin-bottom: 1rem; color: var(--text-secondary);">อุปกรณ์ใกล้เคียง</h3>
+            <div id="list-container"></div>
+        </div>
+    </main>
+
+    <!-- Sleep Notification -->
+    <div id="sleep-notif" class="hidden">
+        <div class="spinner"></div>
+        <span>รอระบบตื่นสักครู่ เนื่องจากเว็บอยู่ในโหมด Sleep เนื่องจากไม่มีคนใช้งานเป็นเวลานาน</span>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="file-input" class="hidden">
+
+    <!-- Modals (Accept/Send/Progress) -->
+    <div id="modal-container" class="hidden">
+        <div class="overlay"></div>
+        <div id="modal-content" class="modal">
+            <!-- Dynamic Content -->
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
