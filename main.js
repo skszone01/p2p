@@ -158,6 +158,20 @@ function sendFile(peerId, file) {
 
         conn.on('open', () => {
             showModal(`
+                <h3>รอการตอบรับ...</h3>
+                <p style="text-align:center; margin-top: 1rem; color: var(--text-secondary);">รอดูว่า ${peerData.name} จะรับไฟล์หรือไม่</p>
+            `);
+
+            // Wait for READY signal from receiver
+            conn.on('data', (data) => {
+                if (data === 'READY') {
+                    startTransfer();
+                }
+            });
+        });
+
+        function startTransfer() {
+            showModal(`
                 <h3>กำลังส่งไฟล์...</h3>
                 <div style="margin: 1.5rem 0; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
                     <div id="progress-bar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.2s;"></div>
@@ -165,8 +179,7 @@ function sendFile(peerId, file) {
                 <p id="progress-text" style="text-align:center; font-size: 0.9rem;">กำลังเริ่มโอนย้าย...</p>
             `);
 
-            // Use large chunk size for better performance
-            const chunkSize = 16 * 1024;
+            const chunkSize = 16384; // 16KB
             let offset = 0;
 
             const reader = new FileReader();
@@ -192,7 +205,7 @@ function sendFile(peerId, file) {
             }
 
             readNextChunk();
-        });
+        }
     };
 }
 
@@ -204,15 +217,24 @@ function handleIncomingConnection(conn) {
         <h3>รับไฟล์จาก ${senderData ? senderData.name : 'Unknown'}</h3>
         <p style="margin: 1rem 0; color: var(--text-secondary);">ส่งไฟล์: <b>${fileName}</b> (${formatBytes(fileSize)})</p>
         <div class="flex-center">
-            <button class="btn btn-secondary" onclick="hideModal()">ปฏิเสธ</button>
+            <button class="btn btn-secondary" id="decline-btn">ปฏิเสธ</button>
             <button class="btn btn-primary" id="confirm-accept">รับไฟล์</button>
         </div>
     `);
 
     let receivedChunks = [];
     let receivedSize = 0;
+    let isAccepted = false;
+
+    document.getElementById('decline-btn').onclick = () => {
+        conn.close();
+        hideModal();
+    };
 
     document.getElementById('confirm-accept').onclick = () => {
+        isAccepted = true;
+        conn.send('READY'); // Signal sender to start
+
         showModal(`
             <h3>กำลังรับไฟล์...</h3>
             <div style="margin: 1.5rem 0; height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden;">
@@ -220,28 +242,33 @@ function handleIncomingConnection(conn) {
             </div>
             <p id="progress-text" style="text-align:center; font-size: 0.9rem;">กำลังดาวน์โหลด...</p>
         `);
-
-        conn.on('data', (data) => {
-            receivedChunks.push(data);
-            receivedSize += data.byteLength;
-
-            const progress = (receivedSize / fileSize) * 100;
-            document.getElementById('progress-bar').style.width = `${progress}%`;
-            document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
-
-            if (receivedSize >= fileSize) {
-                const blob = new Blob(receivedChunks);
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                a.click();
-
-                document.getElementById('progress-text').innerText = "ดาวน์โหลดเสร็จแล้ว!";
-                setTimeout(hideModal, 2000);
-            }
-        });
     };
+
+    conn.on('data', (data) => {
+        if (!isAccepted) return; // Ignore if not accepted yet
+
+        receivedChunks.push(data);
+        receivedSize += data.byteLength;
+
+        const progress = (receivedSize / fileSize) * 100;
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+
+        if (progressBar) progressBar.style.width = `${progress}%`;
+        if (progressText) progressText.innerText = `${Math.round(progress)}%`;
+
+        if (receivedSize >= fileSize) {
+            const blob = new Blob(receivedChunks);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+
+            if (progressText) progressText.innerText = "ดาวน์โหลดเสร็จแล้ว!";
+            setTimeout(hideModal, 2000);
+        }
+    });
 }
 
 // --- Helpers ---
