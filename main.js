@@ -163,12 +163,37 @@ function sendFile(peerId, file) {
                 <p style="text-align:center; margin-top: 1rem; color: var(--text-secondary);">รอดูว่า ${peerData.name} จะรับไฟล์หรือไม่</p>
             `);
 
+            // Check for READY and ACK signals
             conn.on('data', (data) => {
                 if (data === 'READY') {
                     startTransfer();
+                } else if (data === 'ACK') {
+                    // Receiver got the chunk, send next
+                    if (offset < file.size) {
+                        readNextChunk();
+                    } else {
+                        // Transfer complete
+                        document.getElementById('progress-text').innerText = "เสร็จสมบูรณ์!";
+                        setTimeout(hideModal, 2000);
+                        setTimeout(() => conn.close(), 1000);
+                    }
                 }
             });
         });
+
+        let offset = 0;
+        const chunkSize = 16384; // 16KB safe chunk size
+        const reader = new FileReader();
+
+        reader.onload = (event) => {
+            conn.send(event.target.result);
+            offset += event.target.result.byteLength;
+
+            // update UI based on what we sent (and was ACKed implicitly by previous step)
+            const progress = (offset / file.size) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
+        };
 
         function startTransfer() {
             showModal(`
@@ -178,37 +203,12 @@ function sendFile(peerId, file) {
                 </div>
                 <p id="progress-text" style="text-align:center; font-size: 0.9rem;">กำลังเริ่มโอนย้าย...</p>
             `);
-
-            const chunkSize = 65536; // 64KB chunks
-            let offset = 0;
-
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                conn.send(event.target.result);
-                offset += event.target.result.byteLength;
-
-                const progress = (offset / file.size) * 100;
-                document.getElementById('progress-bar').style.width = `${progress}%`;
-                document.getElementById('progress-text').innerText = `${Math.round(progress)}%`;
-
-                if (offset < file.size) {
-                    readNextChunk();
-                } else {
-                    document.getElementById('progress-text').innerText = "เสร็จสมบูรณ์!";
-                    setTimeout(hideModal, 2000);
-                }
-            };
-
-            function readNextChunk() {
-                if (conn.bufferedAmount > 1024 * 1024) {
-                    setTimeout(readNextChunk, 50);
-                    return;
-                }
-                const slice = file.slice(offset, offset + chunkSize);
-                reader.readAsArrayBuffer(slice);
-            }
-
             readNextChunk();
+        }
+
+        function readNextChunk() {
+            const slice = file.slice(offset, offset + chunkSize);
+            reader.readAsArrayBuffer(slice);
         }
     };
 }
@@ -269,6 +269,9 @@ function handleIncomingConnection(conn) {
             if (progressBar) progressBar.style.width = `${progress}%`;
             if (progressText) progressText.innerText = `${Math.round(progress)}%`;
 
+            // Always acknowledge receipt to sender so they send next chunk
+            conn.send('ACK');
+
             if (receivedSize >= fileSize) {
                 const blob = new Blob(receivedChunks);
                 const url = URL.createObjectURL(blob);
@@ -279,7 +282,6 @@ function handleIncomingConnection(conn) {
 
                 if (progressText) progressText.innerText = "ดาวน์โหลดเสร็จแล้ว!";
                 setTimeout(hideModal, 2000);
-                setTimeout(() => conn.close(), 1000);
             }
         }
     });
