@@ -153,7 +153,8 @@ function sendFile(peerId, file) {
 
     document.getElementById('confirm-send').onclick = () => {
         const conn = peer.connect(peerId, {
-            metadata: { fileName: file.name, fileSize: file.size, fileType: file.type }
+            metadata: { fileName: file.name, fileSize: file.size, fileType: file.type },
+            reliable: true
         });
 
         conn.on('open', () => {
@@ -162,7 +163,6 @@ function sendFile(peerId, file) {
                 <p style="text-align:center; margin-top: 1rem; color: var(--text-secondary);">รอดูว่า ${peerData.name} จะรับไฟล์หรือไม่</p>
             `);
 
-            // Wait for READY signal from receiver
             conn.on('data', (data) => {
                 if (data === 'READY') {
                     startTransfer();
@@ -179,7 +179,7 @@ function sendFile(peerId, file) {
                 <p id="progress-text" style="text-align:center; font-size: 0.9rem;">กำลังเริ่มโอนย้าย...</p>
             `);
 
-            const chunkSize = 16384; // 16KB
+            const chunkSize = 65536; // 64KB chunks
             let offset = 0;
 
             const reader = new FileReader();
@@ -200,6 +200,10 @@ function sendFile(peerId, file) {
             };
 
             function readNextChunk() {
+                if (conn.bufferedAmount > 1024 * 1024) {
+                    setTimeout(readNextChunk, 50);
+                    return;
+                }
                 const slice = file.slice(offset, offset + chunkSize);
                 reader.readAsArrayBuffer(slice);
             }
@@ -233,7 +237,7 @@ function handleIncomingConnection(conn) {
 
     document.getElementById('confirm-accept').onclick = () => {
         isAccepted = true;
-        conn.send('READY'); // Signal sender to start
+        conn.send('READY');
 
         showModal(`
             <h3>กำลังรับไฟล์...</h3>
@@ -245,28 +249,44 @@ function handleIncomingConnection(conn) {
     };
 
     conn.on('data', (data) => {
-        if (!isAccepted) return; // Ignore if not accepted yet
+        if (!isAccepted) return;
 
-        receivedChunks.push(data);
-        receivedSize += data.byteLength;
+        let size = 0;
+        if (data instanceof ArrayBuffer) {
+            size = data.byteLength;
+        } else if (data instanceof Blob) {
+            size = data.size;
+        }
 
-        const progress = (receivedSize / fileSize) * 100;
-        const progressBar = document.getElementById('progress-bar');
-        const progressText = document.getElementById('progress-text');
+        if (size > 0) {
+            receivedChunks.push(data);
+            receivedSize += size;
 
-        if (progressBar) progressBar.style.width = `${progress}%`;
-        if (progressText) progressText.innerText = `${Math.round(progress)}%`;
+            const progress = (receivedSize / fileSize) * 100;
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
 
-        if (receivedSize >= fileSize) {
-            const blob = new Blob(receivedChunks);
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
+            if (progressBar) progressBar.style.width = `${progress}%`;
+            if (progressText) progressText.innerText = `${Math.round(progress)}%`;
 
-            if (progressText) progressText.innerText = "ดาวน์โหลดเสร็จแล้ว!";
-            setTimeout(hideModal, 2000);
+            if (receivedSize >= fileSize) {
+                const blob = new Blob(receivedChunks);
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.click();
+
+                if (progressText) progressText.innerText = "ดาวน์โหลดเสร็จแล้ว!";
+                setTimeout(hideModal, 2000);
+                setTimeout(() => conn.close(), 1000);
+            }
+        }
+    });
+
+    conn.on('close', () => {
+        if (receivedSize < fileSize && isAccepted) {
+            showModal(`<h3>การเชื่อมต่อหลุด</h3><p style="text-align:center;">การรับไฟล์ล้มเหลว</p><button class="btn btn-primary" onclick="hideModal()">ตกลง</button>`);
         }
     });
 }
